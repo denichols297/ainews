@@ -185,9 +185,10 @@ class SubstackScraper(NewsScraper):
         return stories[:5]
 
 class RSScraper(NewsScraper):
-    def __init__(self, feed_url):
+    def __init__(self, feed_url, keywords=None):
         super().__init__()
         self.feed_url = feed_url
+        self.keywords = keywords
 
     def scrape(self):
         try:
@@ -204,6 +205,14 @@ class RSScraper(NewsScraper):
                 summary = BeautifulSoup(summary, 'html.parser').get_text(strip=True)
                 url = item.find('link').get_text(strip=True)
                 
+                # Check keywords if filtering is active
+                if self.keywords:
+                    text_to_check = f"{title} {summary}"
+                    # Use word boundaries to avoid matching "AI" in "tailor", "maintain", etc.
+                    pattern = r'\b(' + '|'.join(re.escape(k) for k in self.keywords) + r')\b'
+                    if not re.search(pattern, text_to_check, re.IGNORECASE):
+                        continue
+
                 stories.append({
                     "title": title,
                     "summary": summary[:300] + ("..." if len(summary) > 300 else ""),
@@ -219,7 +228,15 @@ class RSScraper(NewsScraper):
 def get_all_news():
     scrapers = [
         ("DeepLearning.AI", DeepLearningAIScraper()),
-        ("eSchool News", RSScraper("https://www.eschoolnews.com/feed/")),
+        ("eSchool News", RSScraper("https://www.eschoolnews.com/feed/", [
+            "AI", "Artificial Intelligence", "GenAI", "Generative AI",
+            "Machine Learning", "Deep Learning", "Neural Networks",
+            "LLM", "Large Language Model", "GPT", "NLP", "Natural Language Processing",
+            "ChatGPT", "Claude", "Gemini", "Llama", "Mistral",
+            "OpenAI", "Anthropic", "Perplexity", "Google AI", "Microsoft AI",
+            "Chatbot", "Intelligent Tutoring", "Predictive Analytics",
+            "Computer Vision", "Speech Recognition"
+        ])),
         ("Import AI", SubstackScraper("https://importai.substack.com"))
     ]
     
